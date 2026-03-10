@@ -1,10 +1,14 @@
 #include <cstring>
 #include <iostream>
+#include <thread>
 
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
+
+
+void message(int socket);
 
 
 int main()
@@ -14,10 +18,6 @@ int main()
   int addr_len = sizeof(address);  // necessary because temporary sockets can change the address size
   int opt = 1;                     // necessary because sockopt needs the variable's address
   
-  char buffer[1024] = {0};         // buffer with the received message
-  msghdr msg;                      // the message itself
-  iovec vec;                       // io vector for the message
-
   int err;                         // used to check for errors along the way
   int temp;                        // used as a temporary socket
 
@@ -53,39 +53,55 @@ int main()
     return err;
   }
 
-  // Sets up the IO vector and the message
-  vec.iov_base = &buffer;
-  vec.iov_len = 1024;
-  msg.msg_iov = &vec;
-  msg.msg_iovlen = 1;
-  
-  // Waits for a connection. When accepted, saves it as a temporary socket
-  temp = accept(sockfd, (struct sockaddr *)&address, (socklen_t *)&addr_len);
-  if (temp < 0)
-  {
-    std::cout << "Could not accept connection\n";
-    close(temp);
-  }
-
-  // Keeps trying to receive messages
   while (1)
   {
-    // clears the buffer
-    memset(buffer, 0, 1024);
-
-    if (recvmsg(temp, &msg, 0) > 0)
+    // Waits for a connection. When accepted, saves it as a temporary socket
+    temp = accept(sockfd, (struct sockaddr *)&address, (socklen_t *)&addr_len);
+    if (temp < 0)
     {
-      std::cout << buffer;
-    }
-    else
-    {
+      std::cout << "Could not accept connection\n";
       close(temp);
-      break;
     }
+
+    // Creates a new thread for fetching messages asynchronously
+    std::thread msg(message, temp);
+    msg.detach();
   }
   
   close(sockfd);
 
   return 0;
+}
+
+
+void message(int socket)
+{
+  char buffer[1024] = {0};         // buffer with the received message
+  msghdr msg;                      // the message itself
+  iovec vec;                       // io vector for the message
+
+  // Sets up the IO vector and the message
+  vec.iov_base = &buffer;
+  vec.iov_len = 1024;
+  msg.msg_iov = &vec;
+  msg.msg_iovlen = 1;
+
+  // Keeps looking for messages
+  while (1)
+  {
+    // clears the buffer
+    memset(buffer, 0, 1024);
+
+    if (recvmsg(socket, &msg, 0) > 0)
+    {
+      std::cout << buffer;
+    }
+    else
+    {
+      std::cout << "Connection closed\n";
+      close(socket);
+      break;
+    }
+  }
 }
 
