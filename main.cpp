@@ -1,4 +1,6 @@
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <thread>
 #include <queue>
@@ -30,13 +32,23 @@ typedef struct
 {
   http_method method;
   http_version version;
-  char * path;  
+  std::string path;
 }
 request;
+
+// TODO: Status codes and headers
+typedef struct
+{
+  int status;
+  http_version version;
+  std::string content;
+}
+response;
 
 
 void message(int socket);
 int parserequest(request * req, char * message);
+void respond(int socket, response * resp);
 
 
 int main()
@@ -109,7 +121,8 @@ void message(int socket)
   msghdr msg;                      // the message itself
   iovec vec;                       // io vector for the message
   request req;
-  
+  response res;                   // Stores the data for the response
+
   int err;
 
   // Sets up the IO vector and the message
@@ -128,12 +141,54 @@ void message(int socket)
       err = parserequest(&req, buffer);
       if (err != 0)
       {
-        send(socket, "HTTP/1.1 400", 13, 0);
+        res.status = 400;
+        res.content = "400: Bad Request";
+        respond(socket, &res);
         break;
       }
       else
       {
-        send(socket, "HTTP/1.1 200\nServer: Cerver\nConnection: close\nContent-Length: 21\nContent-Type: text/html\n\n<p>Hello, World!</p>\n", 112, 0);
+        std::cout << buffer << std::endl;
+
+        req.path.insert(0, "html/");
+
+        // If the URL is a directory, tries to get the index.html file inside it
+        if (req.path.back() == '/')
+        {
+          req.path.append("index.html");
+        }
+        else if (std::filesystem::is_directory(req.path))
+        {
+          req.path.append("/index.html");
+        }
+
+        std::ifstream file;  // The file to be served
+
+        // Clears the data in the previous response
+        res.status = 200;
+        res.content = "";
+
+        file.open(req.path);
+        
+        if (!file.is_open())
+        {
+          res.status = 404;
+          res.content = "404: Not Found";
+          respond(socket, &res);
+          break;
+        }
+
+        // Saves the file in the response
+        std::string line;
+        while (std::getline(file, line))
+        {
+          res.content.append(line);
+          res.content.append("\n");
+        }
+
+        res.status = 200;
+
+        respond(socket, &res);
       }
     }
     else
@@ -152,8 +207,6 @@ int parserequest(request * req, char * message)
   char buffer[1024] = {0};
   std::queue<std::string> data;  // Three elements (front to back): Method, Path, Version
                                 
-  std::cout << message << std::endl;
-
   int i = 0;
   int j = 0;
   while (1)
@@ -195,7 +248,7 @@ int parserequest(request * req, char * message)
   }
 
   // HTTP Path
-  req->path = (char *)data.front().c_str();
+  req->path = data.front();
   data.pop();
  
   // HTTP Version
@@ -210,5 +263,29 @@ int parserequest(request * req, char * message)
   }
 
   return 0;
+}
+
+void respond(int socket, response * resp)
+{
+  std::string text;
+
+  if (resp->status != 200)
+  {
+    text = "HTTP/1.1 ";
+    text.append(std::to_string(resp->status));
+  }
+  else
+  {
+    text = "HTTP/1.1 200";
+  }
+
+  text.append("\nServer: Cerver\nContent-Length: ");
+  text.append(std::to_string(resp->content.length()));
+  text.append("\nContent-Type: text/html\n\n");
+  text.append(resp->content);
+
+  std::cout << text << std::endl;
+
+  send(socket, text.c_str(), text.length(), 0);
 }
 
