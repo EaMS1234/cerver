@@ -43,6 +43,7 @@ typedef struct
   http_version version;
   std::string content;
 
+  std::string content_type;
   std::string location;
 }
 response;
@@ -195,6 +196,42 @@ void message(int socket)
 
         res.status = 200;
 
+        // checks the type of file
+        std::string extension = ((std::filesystem::path)req.path).extension().string();
+
+        if (extension == ".html")
+        {
+          res.content_type = "text/html";
+        }
+        else if (extension == ".js")
+        {
+          res.content_type = "text/javascript";
+        }
+        else if (extension == ".css")
+        {
+          res.content_type = "text/css";
+        }
+        else if (extension == ".xml")
+        {
+          res.content_type = "text/xml";
+        }
+        else if (extension == ".png")
+        {
+          res.content_type = "image/png";
+        }
+        else if (extension == ".jpg" || extension == ".jpeg")
+        {
+          res.content_type = "image/jpeg";
+        }
+        else if (extension == ".gif")
+        {
+          res.content_type = "image/gif";
+        }
+        else
+        {
+          res.content_type = "application/octet-stream";
+        }
+
         respond(socket, &res);
       }
     }
@@ -287,7 +324,10 @@ void respond(int socket, response * resp)
     text.append(resp->location);
   }
 
-  text.append("\nContent-Type: text/html\n\n");
+  text.append("\nContent-Type: ");
+  text.append(resp->content_type);
+  text.append("\n\n");
+  
   text.append(resp->content);
 
   std::cout << text << std::endl;
