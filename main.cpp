@@ -42,6 +42,8 @@ typedef struct
   int status;
   http_version version;
   std::string content;
+
+  std::string location;
 }
 response;
 
@@ -121,7 +123,6 @@ void message(int socket)
   msghdr msg;                      // the message itself
   iovec vec;                       // io vector for the message
   request req;
-  response res;                   // Stores the data for the response
 
   int err;
 
@@ -133,6 +134,8 @@ void message(int socket)
 
   while(1)
   {
+    response res;  // Stores the data for the response
+
     // clears the buffer
     memset(buffer, 0, 1024);
 
@@ -159,14 +162,18 @@ void message(int socket)
         }
         else if (std::filesystem::is_directory(req.path))
         {
-          req.path.append("/index.html");
+          // Redirect the request to the directory
+          
+          req.path.append("/");
+          res.status = 301;
+          res.location = req.path;
+          res.location.erase(0, 5);
+
+          respond(socket, &res);
+          close(socket);
         }
 
         std::ifstream file;  // The file to be served
-
-        // Clears the data in the previous response
-        res.status = 200;
-        res.content = "";
 
         file.open(req.path);
         
@@ -269,18 +276,17 @@ void respond(int socket, response * resp)
 {
   std::string text;
 
-  if (resp->status != 200)
-  {
-    text = "HTTP/1.1 ";
-    text.append(std::to_string(resp->status));
-  }
-  else
-  {
-    text = "HTTP/1.1 200";
-  }
-
+  text = "HTTP/1.1 ";
+  text.append(std::to_string(resp->status));
   text.append("\nServer: Cerver\nContent-Length: ");
   text.append(std::to_string(resp->content.length()));
+
+  if (resp->status < 400 && resp->status >= 300)
+  {
+    text.append("\nLocation: ");
+    text.append(resp->location);
+  }
+
   text.append("\nContent-Type: text/html\n\n");
   text.append(resp->content);
 
