@@ -3,11 +3,8 @@
 #include <fstream>
 #include <iostream>
 #include <queue>
-#include <string>
 
-#include <netinet/in.h>
 #include <sys/socket.h>
-#include <sys/uio.h>
 #include <unistd.h>
 
 
