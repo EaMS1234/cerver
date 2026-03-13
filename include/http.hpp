@@ -1,0 +1,44 @@
+#include <string>
+
+
+// TODO: Add other methods
+typedef enum
+{
+  GET = 0
+}
+http_method;
+
+// TODO: Add support to version 2
+typedef enum
+{
+  VER_11 = 1
+}
+http_version;
+
+
+// TODO: Parse the headers as well
+typedef struct
+{
+  http_method method;
+  http_version version;
+  std::string path;
+}
+request;
+
+// TODO: Status codes and headers
+typedef struct
+{
+  int status;
+  http_version version;
+  std::string content;
+
+  std::string content_type;
+  std::string location;
+}
+response;
+
+
+void message(int socket);
+int parserequest(request * req, char * message);
+void respond(int socket, response * resp);
+
