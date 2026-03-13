@@ -83,7 +83,7 @@ void message(int socket)
           // Checks if the path is inside the 'root' of the server. If not, Bad Request.
 
           res.status = 400;
-          res.content = "Erro 69: Você se Fudeu!";
+          res.content = "400: Bad Request";
           respond(socket, &res);
           break;
         }
