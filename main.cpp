@@ -48,7 +48,16 @@ typedef struct
 }
 response;
 
+typedef struct
+{
+  int socket;           // default socket file
+  sockaddr_in address;  // socket's address
+  int address_len;      // necessary because temporary sockets can change the address size
+}
+in_socket_fd;
 
+
+int open_socket(in_socket_fd * sock, int port);
 void message(int socket);
 int parserequest(request * req, char * message);
 void respond(int socket, response * resp);
@@ -56,40 +65,19 @@ void respond(int socket, response * resp);
 
 int main()
 {
-  int sockfd;                      // default socker file
-  struct sockaddr_in address;      // socket's address
-  int addr_len = sizeof(address);  // necessary because temporary sockets can change the address size
-  int opt = 1;                     // necessary because sockopt needs the variable's address
+  int temp;
+  int err;
+
+  in_socket_fd sock;
   
-  int err;                         // used to check for errors along the way
-  int temp;                        // used as a temporary socket
-
-  // Creates an IPV4 socket
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd == 0)
+  err = open_socket(&sock, 8080);
+  if (err != 0)
   {
-    std::cout << "Could not create socket" << std::endl;
-    return sockfd;
-  }
-
-  // Sets the values in the address
-  address.sin_family = AF_INET;
-  address.sin_addr.s_addr = INADDR_ANY;
-  address.sin_port = htons(8080);  // ports and addresses need to be mirrorred
-
-  // Makes sure the OS can reuse the same port
-  setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
-
-  // Binds the socket to its host
-  err = bind(sockfd, (struct sockaddr *)&address, addr_len);
-  if (err < 0)
-  {
-    std::cout << "Could not bind socket to address" << std::endl;
     return err;
   }
 
   // Start de-facto listening for connections
-  err = listen(sockfd, 5);
+  err = listen(sock.socket, 5);
   if (err < 0)
   {
     std::cout << "Could not listen" << std::endl;
@@ -99,7 +87,7 @@ int main()
   while (1)
   {
     // Waits for a connection. When accepted, saves it as a temporary socket
-    temp = accept(sockfd, (struct sockaddr *)&address, (socklen_t *)&addr_len);
+    temp = accept(sock.socket, (struct sockaddr *)&sock.address, (socklen_t *)&sock.address_len);
     if (temp < 0)
     {
       std::cout << "Could not accept connection" << std::endl;
@@ -112,7 +100,7 @@ int main()
     }
   }
   
-  close(sockfd);
+  close(sock.socket);
 
   return 0;
 }
@@ -330,8 +318,44 @@ void respond(int socket, response * resp)
   
   text.append(resp->content);
 
-  std::cout << text << std::endl;
+  //std::cout << text << std::endl;
 
   send(socket, text.c_str(), text.length(), 0);
+}
+
+int open_socket(in_socket_fd * sock, int port)
+{
+  sock->address_len = sizeof(sock->address);  // necessary because temporary sockets can change the address size
+  
+  int opt = 1;                                // necessary because sockopt needs the variable's address
+  
+  int err;                                    // used to check for errors along the way
+  int temp;                                   // used as a temporary socket
+
+  // Creates an IPV4 socket
+  sock->socket = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock->socket == 0)
+  {
+    std::cout << "Could not create socket" << std::endl;
+    return -1;
+  }
+
+  // Sets the values in the address
+  sock->address.sin_family = AF_INET;
+  sock->address.sin_addr.s_addr = INADDR_ANY;
+  sock->address.sin_port = htons(port);  // ports and addresses need to be mirrorred
+
+  // Makes sure the OS can reuse the same port
+  setsockopt(sock->socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+
+  // Binds the socket to its host
+  err = bind(sock->socket, (struct sockaddr *)&sock->address, sock->address_len);
+  if (err < 0)
+  {
+    std::cout << "Could not bind socket to address" << std::endl;
+    return -1;
+  }
+
+  return 0;
 }
 
