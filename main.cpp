@@ -58,6 +58,7 @@ in_socket_fd;
 
 
 int open_socket(in_socket_fd * sock, int port);
+int accept_connection(in_socket_fd * sock);
 void message(int socket);
 int parserequest(request * req, char * message);
 void respond(int socket, response * resp);
@@ -76,24 +77,10 @@ int main()
     return err;
   }
 
-  // Start de-facto listening for connections
-  err = listen(sock.socket, 5);
-  if (err < 0)
-  {
-    std::cout << "Could not listen" << std::endl;
-    return err;
-  }
-
   while (1)
   {
-    // Waits for a connection. When accepted, saves it as a temporary socket
-    temp = accept(sock.socket, (struct sockaddr *)&sock.address, (socklen_t *)&sock.address_len);
-    if (temp < 0)
-    {
-      std::cout << "Could not accept connection" << std::endl;
-      close(temp);
-    }
-    else
+    temp = accept_connection(&sock);
+    if (temp != -1)
     {
       std::thread msg(message, temp);
       msg.detach();
@@ -325,6 +312,8 @@ void respond(int socket, response * resp)
 
 int open_socket(in_socket_fd * sock, int port)
 {
+  // Returns -1 in case of an error. Otherwise, returns 0.
+
   sock->address_len = sizeof(sock->address);  // necessary because temporary sockets can change the address size
   
   int opt = 1;                                // necessary because sockopt needs the variable's address
@@ -356,6 +345,33 @@ int open_socket(in_socket_fd * sock, int port)
     return -1;
   }
 
+  // Start de-facto listening for connections
+  err = listen(sock->socket, 5);
+  if (err < 0)
+  {
+    std::cout << "Could not listen" << std::endl;
+    return -1;
+  }
+
+  std::cout << "http://localhost:" << port << std::endl;
+
   return 0;
+}
+
+int accept_connection(in_socket_fd * sock)
+{
+  // Returns -1 in case of an error. Otherwise, returns 0.
+
+  // Waits for a connection. When accepted, saves it as a temporary socket
+  int temp = accept(sock->socket, (struct sockaddr *)&sock->address, (socklen_t *)&sock->address_len);
+  
+  if (temp < 0)
+  {
+    std::cout << "Could not accept connection" << std::endl;
+    close(temp);
+    return -1;
+  }
+
+  return temp;
 }
 
