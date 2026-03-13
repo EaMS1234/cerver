@@ -1,53 +1,13 @@
 #include <cstring>
+#include <string>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <queue>
-
 #include <sys/socket.h>
 #include <unistd.h>
 
-
-// TODO: Add other methods
-typedef enum
-{
-  GET = 0
-}
-http_method;
-
-// TODO: Add support to version 2
-typedef enum
-{
-  VER_11 = 1
-}
-http_version;
-
-
-// TODO: Parse the headers as well
-typedef struct
-{
-  http_method method;
-  http_version version;
-  std::string path;
-}
-request;
-
-// TODO: Status codes and headers
-typedef struct
-{
-  int status;
-  http_version version;
-  std::string content;
-
-  std::string content_type;
-  std::string location;
-}
-response;
-
-
-void message(int socket);
-int parserequest(request * req, char * message);
-void respond(int socket, response * resp);
+#include "../include/http.hpp"
 
 
 void message(int socket)
@@ -56,6 +16,7 @@ void message(int socket)
   msghdr msg;                      // the message itself
   iovec vec;                       // io vector for the message
   request req;
+  std::filesystem::path root = std::filesystem::canonical("html/");
 
   int err;
 
@@ -86,7 +47,7 @@ void message(int socket)
       {
         std::cout << buffer << std::endl;
 
-        req.path.insert(0, "html/");
+        req.path.insert(0, root);
 
         // If the URL is a directory, tries to get the index.html file inside it
         if (req.path.back() == '/')
@@ -100,7 +61,7 @@ void message(int socket)
           req.path.append("/");
           res.status = 301;
           res.location = req.path;
-          res.location.erase(0, 5);
+          res.location.erase(0, root.string().size());
 
           respond(socket, &res);
           close(socket);
@@ -114,6 +75,15 @@ void message(int socket)
         {
           res.status = 404;
           res.content = "404: Not Found";
+          respond(socket, &res);
+          break;
+        }
+        else if (std::filesystem::canonical(req.path).string().rfind(root.c_str(), 0) != 0)
+        {
+          // Checks if the path is inside the 'root' of the server. If not, Bad Request.
+
+          res.status = 400;
+          res.content = "Erro 69: Você se Fudeu!";
           respond(socket, &res);
           break;
         }
@@ -261,8 +231,6 @@ void respond(int socket, response * resp)
   text.append("\n\n");
   
   text.append(resp->content);
-
-  //std::cout << text << std::endl;
 
   send(socket, text.c_str(), text.length(), 0);
 }

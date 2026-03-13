@@ -12,3 +12,6 @@ build: server.a http.a
 clean: build
 	rm ./*.a
 
+run: clean
+	./cerver
+
