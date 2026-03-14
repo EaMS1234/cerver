@@ -38,7 +38,7 @@ typedef struct
 response;
 
 
-void message(int socket);
+void message(int socket, std::string path);
 int parserequest(request * req, char * message);
 void respond(int socket, response * resp);
 

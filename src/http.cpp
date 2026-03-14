@@ -10,13 +10,13 @@
 #include "../include/http.hpp"
 
 
-void message(int socket)
+void message(int socket, std::string path)
 {
   char buffer[1024] = {0};         // buffer with the received message
   msghdr msg;                      // the message itself
   iovec vec;                       // io vector for the message
   request req;
-  std::filesystem::path root = std::filesystem::canonical("html/");
+  std::filesystem::path root = std::filesystem::canonical(path);
 
   int err;
 
@@ -139,7 +139,7 @@ void message(int socket)
     }
     else
     {
-      std::cout << "Connection closed" << std::endl;
+      // std::cout << "Connection closed" << std::endl;
       break;
     }
   }
