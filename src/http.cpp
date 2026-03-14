@@ -99,7 +99,7 @@ void message(int socket, std::string path)
         res.status = 200;
 
         // checks the type of file
-        std::string extension = ((std::filesystem::path)req.path).extension().string();
+        std::string extension = std::filesystem::path(req.path).extension().string();
 
         if (extension == ".html")
         {
@@ -128,6 +128,10 @@ void message(int socket, std::string path)
         else if (extension == ".gif")
         {
           res.content_type = "image/gif";
+        }
+        else if (extension == ".txt" || extension == ".md" || !std::filesystem::path(req.path).has_extension())
+        {
+          res.content_type = "text/plain";
         }
         else
         {
