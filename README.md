@@ -9,12 +9,16 @@ Simple HTTP server in C++. Can serve static files like HTML, JavaScript, CSS and
 - `make` to build the `cerver` binary file
 
 ## Run
-You should have a folder named `html/` on the same directory as the `cerver` file. Run `./cerver` to create the sockets and start waiting for connections.
+You should have a folder named `html/` on the same directory as the `cerver` file. Run `./cerver` to create the sockets and start waiting for connections on `http://localhost:8080/`.
 
 ### Changing the default port
-For default the server will listen on the port `8080`. You can change this by altering the line `err = open_socket(&sock, 8080);` in the `src/main.cpp` file before building.
+Use `cerver --port <number>` when running to change the port to something else.
+
+### Changing the directory
+Use `cerver <folder>` to serve the files in another directory (The user running the command must have access to the folder).
 
 ## Limitations
 - This is still a work in progress. For now it still ignores HTTP headers in the request, and only implements a few in the response;
-- It sucessfully parses `.html`, `.js`, `.css`, `.xml`, `.png`, `.jpg` or `.jpeg` and `.gif` files with the correct `Content-Type` header, but everything else falls into `application/octet-stream` binaries;
-- Routes are static and directly translate to the directory structure inside the `html` folder.
+- It sucessfully parses `.html`, `.js`, `.css`, `.xml`, `.png`, `.jpg` or `.jpeg`, `.gif` and plain text files with the correct `Content-Type` header, while everything else falls into `application/octet-stream` binary files category;
+- Routes are static and directly translate to the directory structure inside the `html` folder;
+- No HTTPS.
