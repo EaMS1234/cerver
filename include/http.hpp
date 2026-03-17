@@ -42,3 +42,6 @@ void message(int socket, std::string path);
 int parserequest(request * req, char * message);
 void respond(int socket, response * resp);
 
+void serve_directory(request * req, response * res, std::string path);
+void serve_file(request * req, response * res, std::string path);
+

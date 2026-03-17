@@ -46,104 +46,14 @@ void message(int socket, std::string path)
       else
       {
         std::cout << buffer << std::endl;
-
-        req.path.insert(0, root);
-
-        // If the URL is a directory, tries to get the index.html file inside it
-        if (req.path.back() == '/')
-        {
-          req.path.append("index.html");
-        }
-        else if (std::filesystem::is_directory(req.path))
-        {
-          // Redirect the request to the directory
-          
-          req.path.append("/");
-          res.status = 301;
-          res.location = req.path;
-          res.location.erase(0, root.string().size());
-
-          respond(socket, &res);
-          close(socket);
-        }
-
-        std::ifstream file;  // The file to be served
-
-        file.open(req.path);
         
-        if (!file.is_open())
-        {
-          res.status = 404;
-          res.content = "404: Not Found";
-          respond(socket, &res);
-          break;
-        }
-        else if (std::filesystem::canonical(req.path).string().rfind(root.c_str(), 0) != 0)
-        {
-          // Checks if the path is inside the 'root' of the server. If not, Bad Request.
-
-          res.status = 400;
-          res.content = "400: Bad Request";
-          respond(socket, &res);
-          break;
-        }
-
-        // Saves the file in the response
-        std::string line;
-        while (std::getline(file, line))
-        {
-          res.content.append(line);
-          res.content.append("\n");
-        }
-
-        res.status = 200;
-
-        // checks the type of file
-        std::string extension = std::filesystem::path(req.path).extension().string();
-
-        if (extension == ".html")
-        {
-          res.content_type = "text/html";
-        }
-        else if (extension == ".js")
-        {
-          res.content_type = "text/javascript";
-        }
-        else if (extension == ".css")
-        {
-          res.content_type = "text/css";
-        }
-        else if (extension == ".xml")
-        {
-          res.content_type = "text/xml";
-        }
-        else if (extension == ".png")
-        {
-          res.content_type = "image/png";
-        }
-        else if (extension == ".jpg" || extension == ".jpeg")
-        {
-          res.content_type = "image/jpeg";
-        }
-        else if (extension == ".gif")
-        {
-          res.content_type = "image/gif";
-        }
-        else if (extension == ".txt" || extension == ".md" || !std::filesystem::path(req.path).has_extension())
-        {
-          res.content_type = "text/plain";
-        }
-        else
-        {
-          res.content_type = "application/octet-stream";
-        }
-
+        serve_directory(&req, &res, root);
         respond(socket, &res);
       }
     }
     else
     {
-      // std::cout << "Connection closed" << std::endl;
+      std::cout << "Connection closed" << std::endl;
       break;
     }
   }
@@ -237,5 +147,104 @@ void respond(int socket, response * resp)
   text.append(resp->content);
 
   send(socket, text.c_str(), text.length(), 0);
+}
+
+void serve_directory(request *req, response *res, std::string path)
+{
+  req->path.insert(0, path);
+
+  // If the URL is a directory, tries to get the index.html file inside it
+  if (req->path.back() == '/')
+  {
+    req->path.append("index.html");
+  }
+  else if (std::filesystem::is_directory(req->path))
+  {
+    // Redirect the request to the directory
+    
+    req->path.append("/");
+    res->status = 301;
+    res->location = req->path;
+    res->location.erase(0, path.size());
+
+    return;
+  }
+
+  if (std::filesystem::canonical(req->path).string().rfind(path, 0) != 0)
+  {
+    // Checks if the path is inside the 'root' of the server. If not, Bad Request.
+
+    res->status = 400;
+    res->content = "400: Bad Request";
+  }
+  else
+  {
+    serve_file(req, res, path);
+  }
+}
+
+void serve_file(request *req, response *res, std::string path)
+{
+  std::ifstream file;  // The file to be served
+
+  file.open(req->path);
+  
+  if (!file.is_open())
+  {
+    res->status = 404;
+    res->content = "404: Not Found";
+
+    return;
+  }
+
+  // Saves the file in the response
+  std::string line;
+  while (std::getline(file, line))
+  {
+    res->content.append(line);
+    res->content.append("\n");
+  }
+
+  res->status = 200;
+
+  // checks the type of file
+  std::string extension = std::filesystem::path(req->path).extension().string();
+
+  if (extension == ".html")
+  {
+    res->content_type = "text/html";
+  }
+  else if (extension == ".js")
+  {
+    res->content_type = "text/javascript";
+  }
+  else if (extension == ".css")
+  {
+    res->content_type = "text/css";
+  }
+  else if (extension == ".xml")
+  {
+    res->content_type = "text/xml";
+  }
+  else if (extension == ".png")
+  {
+    res->content_type = "image/png";
+  }
+  else if (extension == ".jpg" || extension == ".jpeg")
+  {
+    res->content_type = "image/jpeg";
+  }
+  else if (extension == ".gif")
+  {
+    res->content_type = "image/gif";
+  }
+  else if (extension == ".txt" || extension == ".md" || !std::filesystem::path(req->path).has_extension())
+  {
+    res->content_type = "text/plain";
+  }
+  else
+  {
+    res->content_type = "application/octet-stream";
+  }
 }
 
