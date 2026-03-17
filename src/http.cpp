@@ -40,6 +40,7 @@ void message(int socket, std::string path)
       {
         res.status = 400;
         res.content = "400: Bad Request";
+        res.connection = "close";
         respond(socket, &res);
         break;
       }
@@ -49,15 +50,20 @@ void message(int socket, std::string path)
         
         serve_directory(&req, &res, root);
         respond(socket, &res);
+
+        if (res.connection == "close")
+        {
+          break;
+        }
       }
     }
     else
     {
-      std::cout << "Connection closed" << std::endl;
       break;
     }
   }
 
+  std::cout << "Connection closed" << std::endl;
   close(socket);
 }
 
@@ -140,10 +146,27 @@ void respond(int socket, response * resp)
     text.append(resp->location);
   }
 
-  text.append("\nContent-Type: ");
-  text.append(resp->content_type);
-  text.append("\n\n");
+  if (!resp->connection.empty())
+  {
+    text.append("\nConnection: ");
+    text.append(resp->connection);
+  }
+  else
+  {
+    text.append("\nConnection: keep-alive");
+  }
+
+  if (!resp->content_type.empty())
+  {
+    text.append("\nContent-Type: ");
+    text.append(resp->content_type);
+  }
+  else
+  {
+    text.append("\nContent-Type: text/plain");
+  }
   
+  text.append("\n\n");
   text.append(resp->content);
 
   send(socket, text.c_str(), text.length(), 0);
@@ -170,12 +193,20 @@ void serve_directory(request *req, response *res, std::string path)
     return;
   }
 
-  if (std::filesystem::canonical(req->path).string().rfind(path, 0) != 0)
+  if (!std::filesystem::exists(req->path))
+  {
+    res->status = 404;
+    res->content = "404: Not Found";
+
+    return;
+  }
+  else if (std::filesystem::canonical(req->path).string().rfind(path, 0) != 0)
   {
     // Checks if the path is inside the 'root' of the server. If not, Bad Request.
 
     res->status = 400;
     res->content = "400: Bad Request";
+    res->connection = "close";
   }
   else
   {

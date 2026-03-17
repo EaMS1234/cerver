@@ -34,6 +34,7 @@ typedef struct
 
   std::string content_type;
   std::string location;
+  std::string connection;
 }
 response;
 
