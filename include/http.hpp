@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 
 
 // TODO: Add other methods
@@ -38,11 +39,19 @@ typedef struct
 }
 response;
 
+typedef struct
+{
+  std::string URL;
+  std::string function;
+  std::string path;
+}
+route;
 
-void message(int socket, std::string path);
+
+void message(int socket, std::vector<route> routes);
 int parserequest(request * req, char * message);
 void respond(int socket, response * resp);
 
-void serve_directory(request * req, response * res, std::string path);
-void serve_file(request * req, response * res, std::string path);
+void serve_directory(request * req, response * res, route * r);
+void serve_file(request * req, response * res, route * r);
 

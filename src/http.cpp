@@ -6,17 +6,17 @@
 #include <queue>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <vector>
 
 #include "../include/http.hpp"
 
 
-void message(int socket, std::string path)
+void message(int socket, std::vector<route> routes)
 {
   char buffer[1024] = {0};         // buffer with the received message
   msghdr msg;                      // the message itself
   iovec vec;                       // io vector for the message
   request req;
-  std::filesystem::path root = std::filesystem::canonical(path);
 
   int err;
 
@@ -47,8 +47,31 @@ void message(int socket, std::string path)
       else
       {
         std::cout << buffer << std::endl;
-        
-        serve_directory(&req, &res, root);
+
+        res.status = 404;
+        res.content = "404: Not Found";
+
+        for (route r : routes)
+        {
+          // If the path of the request contains the route's URL as a prefix
+          if (req.path.compare(0, r.URL.size(), r.URL) == 0)
+          {
+            if (r.function == "serve_directory")
+            {
+              req.path.erase(0, r.URL.size() - 1);
+              serve_directory(&req, &res, &r);
+            }
+            
+            if (r.function == "serve_file")
+            {
+              req.path = r.path;
+              serve_file(&req, &res, &r);
+            }
+
+            break;
+          } 
+        }
+
         respond(socket, &res);
 
         if (res.connection == "close")
@@ -172,8 +195,10 @@ void respond(int socket, response * resp)
   send(socket, text.c_str(), text.length(), 0);
 }
 
-void serve_directory(request *req, response *res, std::string path)
+void serve_directory(request *req, response *res, route * r)
 {
+  std::string path = std::filesystem::canonical(r->path);
+  
   req->path.insert(0, path);
 
   // If the URL is a directory, tries to get the index.html file inside it
@@ -184,11 +209,12 @@ void serve_directory(request *req, response *res, std::string path)
   else if (std::filesystem::is_directory(req->path))
   {
     // Redirect the request to the directory
-    
+     
     req->path.append("/");
     res->status = 301;
     res->location = req->path;
-    res->location.erase(0, path.size());
+    res->location.erase(0, path.size() + 1);
+    res->location.insert(0, r->URL);
 
     return;
   }
@@ -210,15 +236,16 @@ void serve_directory(request *req, response *res, std::string path)
   }
   else
   {
-    serve_file(req, res, path);
+    serve_file(req, res, r);
   }
 }
 
-void serve_file(request *req, response *res, std::string path)
+void serve_file(request *req, response *res, route * r)
 {
+  std::string path = std::filesystem::canonical(req->path);
   std::ifstream file;  // The file to be served
-
-  file.open(req->path);
+ 
+  file.open(path);
   
   if (!file.is_open())
   {
@@ -228,6 +255,8 @@ void serve_file(request *req, response *res, std::string path)
     return;
   }
 
+  res->content = "";
+  
   // Saves the file in the response
   std::string line;
   while (std::getline(file, line))
